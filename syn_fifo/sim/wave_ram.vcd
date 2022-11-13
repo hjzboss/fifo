@@ -1,0 +1,87 @@
+$date
+	Sun Nov 13 20:01:29 2022
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1ps
+$end
+$scope module dual_port_ram_tb $end
+$var wire 32 ! rdata [31:0] $end
+$var reg 1 " clk $end
+$var reg 6 # raddr [5:0] $end
+$var reg 1 $ re $end
+$var reg 1 % rst_n $end
+$var reg 6 & waddr [5:0] $end
+$var reg 32 ' wdata [31:0] $end
+$var reg 1 ( we $end
+$scope module ram_inst $end
+$var wire 6 ) raddr [5:0] $end
+$var wire 1 " rclk $end
+$var wire 1 $ re $end
+$var wire 6 * waddr [5:0] $end
+$var wire 1 " wclk $end
+$var wire 32 + wdata [31:0] $end
+$var wire 1 ( we $end
+$var reg 32 , rdata [31:0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+$dumpvars
+bx ,
+bx +
+bx *
+bx )
+0(
+bx '
+bx &
+0%
+0$
+bx #
+0"
+bx !
+$end
+#10000
+1"
+#20000
+1%
+0"
+#25000
+b1111 '
+b1111 +
+b111100 #
+b111100 )
+b111100 &
+b111100 *
+#30000
+1"
+#40000
+1(
+0"
+#50000
+1"
+#60000
+0(
+0"
+#70000
+b100000 '
+b100000 +
+1$
+1"
+#80000
+0"
+#90000
+b1111 !
+b1111 ,
+0$
+1"
+#100000
+0"
+#110000
+1"
+#120000
+0"
+#130000
+1"

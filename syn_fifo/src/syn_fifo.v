@@ -1,3 +1,18 @@
+////////////////////////////////////////////////////////////////////////////////
+// 公司: NUDT
+// 工程师: hjz
+// 创建日期: 2022/11/13
+// 设计名称: 同步fifo
+// 模块名: syn_fifo
+// 目标器件: 未定
+// 工具软件版本号: vivado
+// 描述:
+// 同步fifo主模块
+// 修订版本:
+// rev1.0
+// 额外注释:
+// 待定
+////////////////////////////////////////////////////////////////////////////////
 module syn_fifo #(
     parameter DEPTH = 64,
     parameter WIDTH = 32
@@ -8,8 +23,8 @@ module syn_fifo #(
     input we,
     input re,
     output [WIDTH-1:0] rdata,
-    output reg full,
-    output reg empty
+    output full,
+    output empty
 );
 
 localparam DEPTHPLUS = $clog2(DEPTH);
@@ -33,24 +48,6 @@ dual_port_ram #(
 
 always @(posedge clk, negedge rst_n) begin
     if (~rst_n)
-        full <= 1'b0;
-    else if (raddr == {~waddr[DEPTHPLUS], waddr[DEPTHPLUS-1:0]})
-        full <= 1'b1;
-    else
-        full <= 1'b0;
-end
-
-always @(posedge clk, negedge rst_n) begin
-    if (~rst_n)
-        empty <= 1'b0;
-    else if (raddr == waddr)
-        empty <= 1'b1;
-    else
-        empty <= 1'b0;
-end
-
-always @(posedge clk, negedge rst_n) begin
-    if (~rst_n)
         waddr <= 0;
     else if (we && ~full)
         waddr <= waddr + 1;
@@ -66,4 +63,7 @@ always @(posedge clk, negedge rst_n) begin
     else
         raddr <= raddr;
 end
+
+assign full = (rst_n && (raddr == {~waddr[DEPTHPLUS], waddr[DEPTHPLUS-1:0]})) ? 1'b1 : 1'b0;
+assign empty = (rst_n && (raddr == waddr)) ? 1'b1 : 1'b0;
 endmodule
