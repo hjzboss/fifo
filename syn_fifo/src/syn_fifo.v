@@ -20,8 +20,8 @@ module syn_fifo #(
     input clk,
     input rst_n,
     input [WIDTH-1:0] wdata,
-    input we,
-    input re,
+    input we, // 读使能
+    input re, // 写使能
     output [WIDTH-1:0] rdata,
     output full,
     output empty
@@ -31,6 +31,8 @@ localparam DEPTHPLUS = $clog2(DEPTH);
 
 // 用额外的一位来判断是空还是满
 reg [DEPTHPLUS:0] waddr, raddr;
+// 存储器的写使能和读使能信号
+wire wen, ren;
 
 dual_port_ram #(
     .DEPTH(DEPTH),
@@ -40,8 +42,8 @@ dual_port_ram #(
     .rclk(clk),
     .waddr(waddr[DEPTHPLUS-1:0]),
     .raddr(raddr[DEPTHPLUS-1:0]),
-    .we(we),
-    .re(re),
+    .we(wen),
+    .re(ren),
     .rdata(rdata),
     .wdata(wdata)
 );
@@ -64,6 +66,10 @@ always @(posedge clk, negedge rst_n) begin
         raddr <= raddr;
 end
 
+// 空和满判断只能用组合逻辑，否则会滞后一拍
 assign full = (rst_n && (raddr == {~waddr[DEPTHPLUS], waddr[DEPTHPLUS-1:0]})) ? 1'b1 : 1'b0;
 assign empty = (rst_n && (raddr == waddr)) ? 1'b1 : 1'b0;
+// 要确保读出的数据是正确的
+assign wen = we & ~full;
+assign ren = re & ~empty;
 endmodule
