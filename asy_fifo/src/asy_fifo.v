@@ -34,11 +34,11 @@ module asy_fifo #(
 
 localparam ADDR_WIDTH = $clog2(DEPTH);
 
-// 读写指针
+// 读写指针，用于访存
 reg [ADDR_WIDTH:0] wr_addr;
 reg [ADDR_WIDTH:0] rd_addr;
 
-// 延迟一拍和两拍的读写指针
+// 延迟一拍和两拍的读写指针的格雷码
 reg [ADDR_WIDTH:0] wr_addr_g_r, wr_addr_g_rr;
 reg [ADDR_WIDTH:0] rd_addr_g_r, rd_addr_g_rr;
 
@@ -51,16 +51,18 @@ wire wen;
 wire ren;
 
 // 双端口存储器
-dual_port_ram U1 #(
+dual_port_ram #(
     .DEPTH(DEPTH),
     .WIDTH(WIDTH)
-) (
+) U1(
     .wr_clk(wr_clk),
     .rd_clk(rd_clk),
     .wr_data(wr_data),
     .wen(wen),
     .ren(ren),
-
+    .rd_addr(rd_addr[ADDR_WIDTH-1:0]),
+    .wr_addr(wr_addr[ADDR_WIDTH-1:0]),
+    .rd_data(rd_data)
 );
 
 // 二进制码右移 1 位后与本身异或，其结果就是格雷码
@@ -70,14 +72,65 @@ assign rd_addr_g = rd_addr ^ (rd_addr >> 1);
 // 判断空满逻辑
 // 1. 格雷码高两位相反，其余位相同为满
 // 2. 格雷码全部位相同为空
+// 3. 是与同步后的读写指针进行比较
 assign fifo_full = (wr_addr_g == {~rd_addr_g_rr[ADDR_WIDTH:ADDR_WIDTH-1], rd_addr_g_rr[ADDR_WIDTH-2:0]}) & wr_rst_n;
 assign fifo_empty = (rd_addr_g == wr_addr_g_rr) & rd_rst_n;
 
-// todo:地址读写
+// 控制双端口ram的读写
+assign wen = wr_en & ~fifo_full;
+assign ren = rd_en & ~fifo_empty;
+
+// 地址增加
 always @(posedge wr_clk, negedge wr_rst_n) 
 begin
-    
+    if (~wr_rst_n)
+        wr_addr <= 0;
+    else if (!fifo_full && wr_en)
+        wr_addr <= wr_addr + 1'b1;
+    else  
+        wr_addr <= wr_addr;
 end
 
-//todo:两拍延迟
+always @(posedge rd_clk, negedge rd_rst_n) 
+begin
+    if (~rd_rst_n)
+        rd_addr <= 0;
+    else if (!fifo_empty && rd_en)
+        rd_addr <= rd_addr + 1'b1;
+    else  
+        rd_addr <= rd_addr;
+end
+
+// 两拍延迟，用于时钟同步
+always @(posedge rd_clk, negedge rd_rst_n)
+begin
+    if (~rd_rst_n)
+        wr_addr_g_r <= 0;
+    else
+        wr_addr_g_r <= wr_addr_g;
+end
+
+always @(posedge wr_clk, negedge wr_rst_n)
+begin
+    if (~wr_rst_n)
+        rd_addr_g_r <= 0;
+    else
+        rd_addr_g_r <= rd_addr_g;
+end
+
+always @(posedge rd_clk, negedge rd_rst_n)
+begin
+    if (~rd_rst_n)
+        wr_addr_g_rr <= 0;
+    else
+        wr_addr_g_rr <= wr_addr_g_r;
+end
+
+always @(posedge wr_clk, negedge wr_rst_n)
+begin
+    if (~wr_rst_n)
+        rd_addr_g_rr <= 0;
+    else
+        rd_addr_g_rr <= rd_addr_g_r;
+end
 endmodule
