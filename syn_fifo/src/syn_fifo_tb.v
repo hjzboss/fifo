@@ -10,7 +10,7 @@
 // 描述:
 // 同步fifo的testbench
 // 修订版本:
-// rev1.0
+// rev1.1
 // 额外注释:
 // 待定
 ////////////////////////////////////////////////////////////////////////////////
@@ -39,15 +39,15 @@ end
 
 initial begin
     #20
-    wdata <= 31'd1;
+    wdata <= {$random} % 60;
     #30
-    wdata <= 31'd2;
+    wdata <= {$random} % 60;
     $display("写入数据：%d\n", wdata);
     #20
-    wdata <= 31'd3;
+    wdata <= {$random} % 60;
     $display("写入数据：%d\n", wdata);
     #20
-    wdata <= 31'd4;
+    wdata <= {$random} % 60;
     $display("写入数据：%d\n", wdata);
     #20
     $display("写入数据：%d\n", wdata);
