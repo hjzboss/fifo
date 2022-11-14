@@ -73,8 +73,11 @@ assign rd_addr_g = rd_addr ^ (rd_addr >> 1);
 assign fifo_full = (wr_addr_g == {~rd_addr_g_rr[ADDR_WIDTH:ADDR_WIDTH-1], rd_addr_g_rr[ADDR_WIDTH-2:0]}) & wr_rst_n;
 assign fifo_empty = (rd_addr_g == wr_addr_g_rr) & rd_rst_n;
 
+// todo:地址读写
 always @(posedge wr_clk, negedge wr_rst_n) 
 begin
     
 end
+
+//todo:两拍延迟
 endmodule
