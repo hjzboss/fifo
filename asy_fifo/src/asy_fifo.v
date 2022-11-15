@@ -9,7 +9,7 @@
 // 描述:
 // 同步fifo主模块
 // 修订版本:
-// rev1.0
+// rev1.1
 // 额外注释:
 // 待定
 ////////////////////////////////////////////////////////////////////////////////
@@ -18,18 +18,18 @@ module asy_fifo #(
     parameter             WIDTH = 32
 ) (
   //----------写控制端---------------
-    input                 wr_clk      ,
-    input                 wr_rst_n    ,
-    input                 wr_en       ,
-    output                fifo_full   ,
-    input [WIDTH-1:0]     wr_data     ,
+    input                   wr_clk      ,
+    input                   wr_rst_n    ,
+    input                   wr_en       ,
+    output reg              fifo_full   ,
+    input [WIDTH-1:0]       wr_data     ,
 
     //----------读控制段---------------
-    input                 rd_clk      ,
-    input                 rd_rst_n    ,
-    input                 rd_en       ,
-    output                fifo_empty  ,
-    output [WIDTH-1:0]    rd_data     
+    input                   rd_clk      ,
+    input                   rd_rst_n    ,
+    input                   rd_en       ,
+    output reg              fifo_empty  ,
+    output [WIDTH-1:0]      rd_data     
 );
 
 localparam ADDR_WIDTH = $clog2(DEPTH);
@@ -42,15 +42,22 @@ reg [ADDR_WIDTH:0] rd_addr;
 reg [ADDR_WIDTH:0] wr_addr_g_r, wr_addr_g_rr;
 reg [ADDR_WIDTH:0] rd_addr_g_r, rd_addr_g_rr;
 
-// 读写地址的格雷码
-wire [ADDR_WIDTH:0] wr_addr_g;
-wire [ADDR_WIDTH:0] rd_addr_g;
+// 当前读写地址的格雷码
+reg [ADDR_WIDTH:0] wr_addr_g;
+reg [ADDR_WIDTH:0] rd_addr_g;
+
+// 下一读写地址的格雷码
+wire [ADDR_WIDTH:0] wr_addr_next_g;
+wire [ADDR_WIDTH:0] rd_addr_next_g;
+
+// 下一周期的写读地址
+wire [ADDR_WIDTH:0] wr_addr_next, rd_addr_next;
 
 // 双端口存储器的写使能和读使能
 wire wen;
 wire ren;
 
-// 双端口存储器
+// 双端口存储器实例
 dual_port_ram #(
     .DEPTH(DEPTH),
     .WIDTH(WIDTH)
@@ -66,71 +73,73 @@ dual_port_ram #(
 );
 
 // 二进制码右移 1 位后与本身异或，其结果就是格雷码
-assign wr_addr_g = wr_addr ^ (wr_addr >> 1);
-assign rd_addr_g = rd_addr ^ (rd_addr >> 1);
+assign wr_addr_next_g = wr_addr_next ^ (wr_addr_next >> 1);
+assign rd_addr_next_g = rd_addr_next ^ (rd_addr_next >> 1);
+
+// 下一读写地址的产生逻辑
+assign wr_addr_next = wr_addr + (~fifo_full & wr_en);
+assign rd_addr_next = rd_addr + (~fifo_empty & rd_en);
 
 // 判断空满逻辑
 // 1. 格雷码高两位相反，其余位相同为满
 // 2. 格雷码全部位相同为空
 // 3. 是与同步后的读写指针进行比较
-assign fifo_full = (wr_addr_g == {~rd_addr_g_rr[ADDR_WIDTH:ADDR_WIDTH-1], rd_addr_g_rr[ADDR_WIDTH-2:0]}) & wr_rst_n;
-assign fifo_empty = (rd_addr_g == wr_addr_g_rr) & rd_rst_n;
+// 此处是比较次态，用于下一次空满信号的产生
+assign fifo_full_val = wr_addr_next_g == {~rd_addr_g_rr[ADDR_WIDTH:ADDR_WIDTH-1], rd_addr_g_rr[ADDR_WIDTH-2:0]};
+assign fifo_empty_val = rd_addr_next_g == wr_addr_g_rr;
 
-// 控制双端口ram的读写
+// 控制双端口存储器的读写
 assign wen = wr_en & ~fifo_full;
 assign ren = rd_en & ~fifo_empty;
 
-// 地址增加
+// 空满信号的产生
 always @(posedge wr_clk, negedge wr_rst_n) 
 begin
     if (~wr_rst_n)
-        wr_addr <= 0;
-    else if (!fifo_full && wr_en)
-        wr_addr <= wr_addr + 1'b1;
-    else  
-        wr_addr <= wr_addr;
+        fifo_full <= 1'b0;
+    else
+        fifo_full <= fifo_full_val;
 end
 
 always @(posedge rd_clk, negedge rd_rst_n) 
 begin
     if (~rd_rst_n)
-        rd_addr <= 0;
-    else if (!fifo_empty && rd_en)
-        rd_addr <= rd_addr + 1'b1;
+        fifo_empty <= 1'b1;
+    else
+        fifo_empty <= fifo_empty_val;
+end
+
+// 地址更新和格雷码更新
+always @(posedge wr_clk, negedge wr_rst_n) 
+begin
+    if (~wr_rst_n)
+        {wr_addr, wr_addr_g} <= 0;
     else  
-        rd_addr <= rd_addr;
+        {wr_addr, wr_addr_g} <= {wr_addr_next, wr_addr_next_g};
+end
+
+always @(posedge rd_clk, negedge rd_rst_n) 
+begin
+    if (~rd_rst_n)
+        {rd_addr, rd_addr_g} <= 0;
+    else  
+        {rd_addr, rd_addr_g} <= {rd_addr_next, rd_addr_next_g};
 end
 
 // 两拍延迟，用于时钟同步
 always @(posedge rd_clk, negedge rd_rst_n)
 begin
     if (~rd_rst_n)
-        wr_addr_g_r <= 0;
+        {wr_addr_g_rr, wr_addr_g_r} <= 0;
     else
-        wr_addr_g_r <= wr_addr_g;
+        {wr_addr_g_rr, wr_addr_g_r} <= {wr_addr_g_r, wr_addr_g};
 end
 
 always @(posedge wr_clk, negedge wr_rst_n)
 begin
     if (~wr_rst_n)
-        rd_addr_g_r <= 0;
+        {rd_addr_g_rr, rd_addr_g_r} <= 0;
     else
-        rd_addr_g_r <= rd_addr_g;
-end
-
-always @(posedge rd_clk, negedge rd_rst_n)
-begin
-    if (~rd_rst_n)
-        wr_addr_g_rr <= 0;
-    else
-        wr_addr_g_rr <= wr_addr_g_r;
-end
-
-always @(posedge wr_clk, negedge wr_rst_n)
-begin
-    if (~wr_rst_n)
-        rd_addr_g_rr <= 0;
-    else
-        rd_addr_g_rr <= rd_addr_g_r;
+        {rd_addr_g_rr, rd_addr_g_r} <= {rd_addr_g_r, rd_addr_g};
 end
 endmodule
